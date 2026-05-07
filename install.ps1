@@ -1,16 +1,17 @@
-# Installs the global CLAUDE.md and /diagnose skill into ~/.claude/
+# Installs the global CLAUDE.md and every skill in skills/ into ~/.claude/
 # Run from PowerShell:  & .\install.ps1
 # Safe to re-run.
 
 $ErrorActionPreference = "Stop"
 
-$ClaudeRoot = Join-Path $env:USERPROFILE ".claude"
-$SkillsDir  = Join-Path $ClaudeRoot "skills\diagnose"
-$Source     = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ClaudeRoot   = Join-Path $env:USERPROFILE ".claude"
+$SkillsTarget = Join-Path $ClaudeRoot "skills"
+$Source       = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-New-Item -ItemType Directory -Force -Path $ClaudeRoot | Out-Null
-New-Item -ItemType Directory -Force -Path $SkillsDir  | Out-Null
+New-Item -ItemType Directory -Force -Path $ClaudeRoot   | Out-Null
+New-Item -ItemType Directory -Force -Path $SkillsTarget | Out-Null
 
+# CLAUDE.md: append if exists, create if not
 $ClaudeMdTarget = Join-Path $ClaudeRoot "CLAUDE.md"
 $ClaudeMdSource = Join-Path $Source "CLAUDE.md"
 $NewContent = Get-Content $ClaudeMdSource -Raw
@@ -26,13 +27,19 @@ if (Test-Path $ClaudeMdTarget) {
     }
 } else {
     Set-Content -Path $ClaudeMdTarget -Value $NewContent
-    Write-Host "Created new CLAUDE.md at $ClaudeMdTarget" -ForegroundColor Green
+    Write-Host "Created CLAUDE.md at $ClaudeMdTarget" -ForegroundColor Green
 }
 
-$SkillTarget = Join-Path $SkillsDir "SKILL.md"
-$SkillSource = Join-Path $Source "skills\diagnose\SKILL.md"
-Copy-Item $SkillSource $SkillTarget -Force
-Write-Host "Installed /diagnose skill at $SkillTarget" -ForegroundColor Green
+# Skills: copy every subfolder in skills/
+$SkillsSource = Join-Path $Source "skills"
+$SkillFolders = Get-ChildItem -Path $SkillsSource -Directory
+
+foreach ($Skill in $SkillFolders) {
+    $TargetDir = Join-Path $SkillsTarget $Skill.Name
+    New-Item -ItemType Directory -Force -Path $TargetDir | Out-Null
+    Copy-Item -Path (Join-Path $Skill.FullName "*") -Destination $TargetDir -Recurse -Force
+    Write-Host "Installed /$($Skill.Name) skill at $TargetDir" -ForegroundColor Green
+}
 
 Write-Host ""
 Write-Host "Done. Restart Claude Code for changes to take effect." -ForegroundColor Cyan
